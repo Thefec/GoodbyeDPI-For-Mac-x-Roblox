@@ -78,6 +78,11 @@ DAEMON_PLIST="/Library/LaunchDaemons/com.goodbyedpi.mac.plist"
 
 # Eski servisi durdur (kapanırken DNS/proxy/pf ayarlarını kendisi geri alır)
 sudo launchctl bootout system/com.goodbyedpi.mac >/dev/null 2>&1
+# Eski servis kapanırken ayarları geri alıyor; tamamen bitmesini bekle (en fazla 40 sn)
+for _ in $(seq 1 40); do
+  sudo launchctl print system/com.goodbyedpi.mac >/dev/null 2>&1 || break
+  sleep 1
+done
 sudo pkill -x spoofdpi >/dev/null 2>&1
 sudo pkill -f roblox-relay.py >/dev/null 2>&1
 
@@ -96,7 +101,19 @@ rm -rf "$TMP"
 sudo sh -c ': > /var/log/goodbyedpi.log'
 
 echo "Servis başlatılıyor..."
-sudo launchctl bootstrap system "$DAEMON_PLIST" || { echo "Servis başlatılamadı. Günlük: /var/log/goodbyedpi.log"; pause_exit 1; }
+STARTED=0
+for _ in 1 2 3 4 5 6; do
+  if sudo launchctl bootstrap system "$DAEMON_PLIST" 2>/dev/null; then STARTED=1; break; fi
+  # Hâlâ kayıtlıysa yeniden başlatmak yeterli (dosyalar zaten güncellendi)
+  if sudo launchctl print system/com.goodbyedpi.mac >/dev/null 2>&1; then
+    if sudo launchctl kickstart -k system/com.goodbyedpi.mac 2>/dev/null; then STARTED=1; break; fi
+  fi
+  sleep 3
+done
+if [ "$STARTED" != "1" ]; then
+  echo "Servis başlatılamadı. Mac'i yeniden başlatman yeterli; açılışta kendiliğinden çalışır."
+  pause_exit 1
+fi
 
 # --- Sonucu bekle ve göster (en fazla ~3 dakika) ---
 echo
