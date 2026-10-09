@@ -1,0 +1,13 @@
+# Alternatif 7: Quad9 DoH + 1 bayt + sıra bozma + 3 sahte paket
+
+[dns]
+mode = "https"
+https-url = "https://9.9.9.9/dns-query"
+qtype = "ipv4"
+cache = true
+
+[https]
+split-mode = "chunk"
+chunk-size = 1
+disorder = true
+fake-count = 3

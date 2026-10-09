@@ -1,0 +1,11 @@
+# Alternatif 4: Cloudflare DoH + 35 baytlık parçalar
+
+[dns]
+mode = "https"
+https-url = "https://1.1.1.1/dns-query"
+qtype = "ipv4"
+cache = true
+
+[https]
+split-mode = "chunk"
+chunk-size = 35

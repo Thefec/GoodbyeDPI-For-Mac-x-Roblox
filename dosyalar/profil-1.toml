@@ -1,0 +1,10 @@
+# Alternatif 1: Cloudflare DoH + SNI'dan bölme (hafif, ilk denenen)
+
+[dns]
+mode = "https"
+https-url = "https://1.1.1.1/dns-query"
+qtype = "ipv4"
+cache = true
+
+[https]
+split-mode = "sni"

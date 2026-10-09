@@ -1,0 +1,23 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Betik sözdizimi
+        run: |
+          for f in *.command dosyalar/*.sh test/*.sh; do
+            bash -n "$f"
+          done
+
+      - name: shellcheck
+        run: shellcheck -S warning *.command dosyalar/*.sh test/*.sh
+
+      - name: Otomatik seçim testi
+        run: bash test/test-calistir.sh

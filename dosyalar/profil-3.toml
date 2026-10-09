@@ -1,0 +1,10 @@
+# Alternatif 3: Quad9 DoH + ilk bayttan bölme
+
+[dns]
+mode = "https"
+https-url = "https://9.9.9.9/dns-query"
+qtype = "ipv4"
+cache = true
+
+[https]
+split-mode = "first-byte"

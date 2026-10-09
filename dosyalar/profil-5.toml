@@ -1,0 +1,11 @@
+# Alternatif 5: Google DoH + rastgele bölme + sırayı bozma
+
+[dns]
+mode = "https"
+https-url = "https://8.8.8.8/dns-query"
+qtype = "ipv4"
+cache = true
+
+[https]
+split-mode = "random"
+disorder = true

@@ -1,0 +1,13 @@
+# Alternatif 8: Google DoH + 1 bayt + sıra bozma + 5 sahte paket (en agresif)
+
+[dns]
+mode = "https"
+https-url = "https://8.8.8.8/dns-query"
+qtype = "ipv4"
+cache = true
+
+[https]
+split-mode = "chunk"
+chunk-size = 1
+disorder = true
+fake-count = 5

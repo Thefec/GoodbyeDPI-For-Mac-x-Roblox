@@ -1,0 +1,10 @@
+# Alternatif 2: Google DoH + SNI'dan bölme
+
+[dns]
+mode = "https"
+https-url = "https://8.8.8.8/dns-query"
+qtype = "ipv4"
+cache = true
+
+[https]
+split-mode = "sni"
