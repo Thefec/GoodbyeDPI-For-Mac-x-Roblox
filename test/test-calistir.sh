@@ -137,7 +137,7 @@ not() { ! "$@"; }
 log_has() { grep -q -- "$1" "$T/out.log"; }
 line_of() { grep -n -- "$1" "$T/out.log" | head -n 1 | cut -d: -f1; }
 before() { local a b; a="$(line_of "$1")"; b="$(line_of "$2")"; [ -n "$a" ] && [ -n "$b" ] && [ "$a" -lt "$b" ]; }
-first_try_is() { grep -m1 'deneniyor' "$T/out.log" | grep -q "alternatif $1 deneniyor"; }
+first_try_is() { grep -m1 'alternatif [0-9] deneniyor' "$T/out.log" | grep -q "alternatif $1 deneniyor"; }
 first_try_after_drop() { awk '/koptu/{f=1;next} f && /alternatif [0-9] deneniyor/{print; exit}' "$T/out.log"; }
 dropped_not_retried_first() {
   local l; l="$(first_try_after_drop)"
@@ -172,8 +172,8 @@ check "proxy kapanınca kapalı"                    eq "$(web_state)" "Enabled: 
 check "proxy yalnızca çalışan bulununca açıldı"   before "alternatif 3 çalışıyor" "NS: -setwebproxy Wi-Fi"
 check "çalışırken DNS 127.0.0.1"                  eq "$RUNNING_DNS" "127.0.0.1"
 check "kapanınca eski DNS geri geldi"             eq "$(dns_of)" "192.168.1.1"
-check "uygulama doğrudan bağlandı, aktarıcı yok"  log_has "doğrudan bağlanabiliyor"
-check "aktarıcı başlatılmadı"                     not log_has "RELAY start"
+check "uygulama için önce aktarıcı kullanıldı"    log_has "uygulama aktarıcısı 1 çalışıyor"
+check "doğrudan moda düşülmedi"                   not log_has "doğrudan bağlanabiliyor"
 check "sinyalle temiz çıkış"                      rc_zero
 
 echo "B) yeniden başlatma: son çalışan ilk denenmeli"
@@ -268,11 +268,16 @@ start; sleep 2.5; stop
 check "python uyarısı"                            log_has "python3 yok"
 check "aktarıcı başlatılmadı"                     not log_has "RELAY start"
 
+echo "N) python yok ama doğrudan bağlantı çalışıyor: doğrudan moda düşmeli"
+reset_env; echo 1 > "$T/ok_profile"; echo dns > "$T/app_need"; touch "$T/no_python"
+start; sleep 2.5; stop
+check "doğrudan moda düştü"                       log_has "doğrudan bağlanabiliyor"
+
 echo "M) açılışta şifreli DNS geç hazır oldu: Roblox uygulaması yolu beklemeden yeniden taranmalı"
 reset_env; rm -f "$T/dnscrypt_up"; echo 1 > "$T/ok_profile"; echo dns > "$T/app_need"
 export GDPI_DEGRADED_WAIT=300
 start; sleep 3; touch "$T/dnscrypt_up"
-wait_for_log "doğrudan bağlanabiliyor" 15; M_OK=$?
+wait_for_log "uygulama aktarıcısı 1 çalışıyor" 15; M_OK=$?
 stop
 export GDPI_DEGRADED_WAIT=3
 check "DNS gelince yeniden tarandı"               log_has "DNS durumu değişti"

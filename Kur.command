@@ -8,7 +8,7 @@ SRC="$(pwd)/dosyalar"
 pause_exit() { echo; read -r -p "Çıkmak için Enter'a bas..." _; exit "${1:-0}"; }
 
 echo "=============================================="
-echo "   GoodbyeDPI-Mac KURULUM  (v0.2.1)"
+echo "   GoodbyeDPI-Mac KURULUM  (v0.2.2)"
 echo "=============================================="
 echo
 
@@ -61,6 +61,12 @@ echo "Mac parolan istenecek (yazarken görünmez):"
 sudo -v || { echo "Parola alınamadı."; pause_exit 1; }
 
 echo "Şifreli DNS (dnscrypt-proxy) başlatılıyor..."
+# Yalnızca IPv4 adres versin: aktarıcı IPv4 trafiğini yakalıyor, IPv6 ile atlanmasın
+DNSCRYPT_CONF="$(brew --prefix)/etc/dnscrypt-proxy.toml"
+if [ -f "$DNSCRYPT_CONF" ] && grep -qE '^block_ipv6 *= *false' "$DNSCRYPT_CONF"; then
+  sed -i '' -E 's/^block_ipv6 *= *false/block_ipv6 = true/' "$DNSCRYPT_CONF" 2>/dev/null \
+    || sudo sed -i '' -E 's/^block_ipv6 *= *false/block_ipv6 = true/' "$DNSCRYPT_CONF"
+fi
 sudo "$BREW" services restart dnscrypt-proxy >/dev/null 2>&1 || sudo "$BREW" services start dnscrypt-proxy >/dev/null 2>&1
 for _ in $(seq 1 30); do
   dig +short +time=2 +tries=1 A clientsettings.roblox.com @127.0.0.1 2>/dev/null | grep -Eq '^[0-9.]+$' && break
@@ -130,7 +136,7 @@ echo "------------------- SONUÇ -------------------"
 grep -E "DNS|doğrudan|aktarıcısı [0-9] çalışıyor|yol doğrulanamadı|python|alternatif [0-9] çalışıyor|hiçbir alternatif|sabit alternatif|internet yok" "$LOG" | sed 's/^[0-9-]* [0-9:]* /  /'
 echo "---------------------------------------------"
 if grep -qE "doğrudan bağlanabiliyor|aktarıcısı [0-9] çalışıyor" "$LOG"; then
-  echo "KURULDU. Roblox uygulamasını açabilirsin (açıksa kapatıp yeniden aç)."
+  echo "KURULDU. Roblox açıksa Cmd+Q ile TAMAMEN kapat, sonra yeniden aç."
 else
   echo "Kuruldu ama Roblox uygulaması yolu henüz doğrulanamadı. Servis birkaç dakikada bir yeniden dener."
   echo "Bir sorun olursa Durum.command'a çift tıkla ve ekranın fotoğrafını gönder."

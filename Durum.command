@@ -7,7 +7,7 @@ bad()  { printf '  \033[31m✗\033[0m %s\n' "$*"; }
 code_ok() { case "$1" in [234][0-9][0-9]) return 0 ;; *) return 1 ;; esac; }
 
 echo "=============================================="
-echo "   GoodbyeDPI-Mac DURUM  v0.2.1  ($(date '+%F %T'))"
+echo "   GoodbyeDPI-Mac DURUM  v0.2.2  ($(date '+%F %T'))"
 echo "=============================================="
 
 # Servis

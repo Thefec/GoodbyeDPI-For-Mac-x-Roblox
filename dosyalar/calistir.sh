@@ -212,24 +212,26 @@ app_teardown() { pf_off; stop_relay; }
 app_setup() {
   local s
   APP_MODE="yok"
+  # Önce aktarıcı: doğrudan bağlantı curl'da geçse bile Roblox uygulamasının bağlantısı DPI'ye
+  # takılabiliyor (gerçek Mac'te görüldü: curl 200, uygulama SslConnectFail). Aktarıcı her durumda daha güvenli.
+  if "$PYTHON" -c 'import asyncio' >/dev/null 2>&1; then
+    for s in $RELAY_STRATEGIES; do
+      log "uygulama aktarıcısı $s deneniyor"
+      if start_relay "$s" && pf_on && app_ok; then
+        APP_MODE="aktarici-$s"
+        log "uygulama aktarıcısı $s çalışıyor, Roblox uygulaması bağlanabilir"
+        return
+      fi
+      app_teardown
+    done
+  else
+    log "python3 yok; Roblox uygulaması aktarıcısı çalıştırılamıyor (xcode-select --install)"
+  fi
   if app_ok; then
     APP_MODE="direkt"
-    log "Roblox uygulaması doğrudan bağlanabiliyor (aktarıcı gerekmiyor)"
+    log "Roblox uygulaması doğrudan bağlanabiliyor (aktarıcı olmadan)"
     return
   fi
-  if ! "$PYTHON" -c 'import asyncio' >/dev/null 2>&1; then
-    log "python3 yok; Roblox uygulaması aktarıcısı çalıştırılamıyor (xcode-select --install)"
-    return
-  fi
-  for s in $RELAY_STRATEGIES; do
-    log "uygulama aktarıcısı $s deneniyor"
-    if start_relay "$s" && pf_on && app_ok; then
-      APP_MODE="aktarici-$s"
-      log "uygulama aktarıcısı $s çalışıyor, Roblox uygulaması bağlanabilir"
-      return
-    fi
-    app_teardown
-  done
   log "Roblox uygulaması için yol doğrulanamadı; $DEGRADED_WAIT sn sonra yeniden denenecek"
 }
 
