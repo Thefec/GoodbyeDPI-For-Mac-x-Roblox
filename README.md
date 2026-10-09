@@ -26,7 +26,7 @@ Engel üç parçalıdır; servis her birini ayrı çözer, her çözümü kendis
 | Katman | Sorun | Çözüm |
 |---|---|---|
 | 1. DNS | Operatör Roblox adreslerine sahte IP veriyor (engel sayfası, sahte sertifika). Normal DNS sorguları da kesiliyor. | Yerel **şifreli DNS** (dnscrypt-proxy, `127.0.0.1`). Çalışmazsa eski DNS'e döner, internet bozulmaz. |
-| 2. Roblox uygulaması | Uygulama sistem proxy'sini kullanmıyor; bağlantının içindeki alan adı (SNI) DPI tarafından görülüyor. | Önce doğrudan bağlantı denenir. Olmazsa **yalnızca Roblox IP'lerine** giden trafik `pf` ile yerel aktarıcıya yönlendirilir; aktarıcı TLS ClientHello'yu parçalar. 3 strateji sırayla denenir. |
+| 2. Roblox uygulaması | Uygulama sistem proxy'sini kullanmıyor; bağlantının içindeki alan adı (SNI) DPI tarafından görülüyor. | Önce doğrudan bağlantı denenir. Olmazsa **yalnızca Roblox adreslerine** (Roblox IP blokları ve indiricinin kullandığı CDN adresleri) giden trafik `pf` ile yerel aktarıcıya yönlendirilir; aktarıcı TLS ClientHello'yu parçalar. 3 strateji sırayla denenir. |
 | 3. Tarayıcı | Aynı SNI engeli | 8 SpoofDPI alternatifi sırayla denenir, Roblox'a bağlanan sistem proxy'si yapılır. |
 
 Çalışırken 30 saniyede bir kontrol eder. Bir yol koparsa yeniden tarar. İnternet yoksa bekler.
@@ -71,7 +71,7 @@ Değiştirdikten sonra `Yeniden-Baslat.command`. (v0.1'deki `MOD=tun` kaldırıl
 - Servis root olarak çalışır; çalıştırdığı her dosya root'a ait kopyalardır (`/usr/local/libexec/goodbyedpi`, `/usr/local/etc/goodbyedpi`).
 - Kullanıcının `ayarlar.conf` dosyası **çalıştırılmaz**; yalnızca izin verilen değerler okunur.
 - Aktarıcı portu açtıktan sonra `nobody` kullanıcısına düşer. Şifre çözmez, sertifika kurmaz; yalnızca ilk paketi parçalar, sonrasını olduğu gibi aktarır.
-- `pf` kuralı yalnızca Roblox IP bloklarına (AS22697) giden 443 trafiğini etkiler; macOS'un `com.apple/goodbyedpi` çapasına yüklenir, `/etc/pf.conf` değiştirilmez.
+- `pf` kuralı yalnızca Roblox IP bloklarına (AS22697) ve Roblox alan adlarının çözüldüğü CDN IP'lerine giden 443 trafiğini etkiler; macOS'un `com.apple/goodbyedpi` çapasına yüklenir, `/etc/pf.conf` değiştirilmez.
 - DNS ve proxy ayarları yalnızca `127.0.0.1`'e işaret ediyorsa geri alınır; önceki DNS sunucuların kaydedilip geri yüklenir.
 
 ## Test
@@ -80,7 +80,7 @@ Değiştirdikten sonra `Yeniden-Baslat.command`. (v0.1'deki `MOD=tun` kaldırıl
 bash test/test-calistir.sh
 ```
 
-macOS gerektirmez. Servisin davranışını sahte araçlarla kontrol eder (50 kontrol): alternatif sırası, kopma sonrası geçiş,
+macOS gerektirmez. Servisin davranışını sahte araçlarla kontrol eder (51 kontrol): alternatif sırası, kopma sonrası geçiş,
 DNS'in açılıp eski haline dönmesi, şifreli DNS çökerse geri dönüş, aktarıcı stratejileri, pf kuralının kurulup kaldırılması,
 internet yokken bekleme, ayar dosyasına komut enjeksiyonu.
 

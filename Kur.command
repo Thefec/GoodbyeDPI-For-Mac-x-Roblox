@@ -8,7 +8,7 @@ SRC="$(pwd)/dosyalar"
 pause_exit() { echo; read -r -p "Çıkmak için Enter'a bas..." _; exit "${1:-0}"; }
 
 echo "=============================================="
-echo "   GoodbyeDPI-Mac KURULUM  (v0.2.0)"
+echo "   GoodbyeDPI-Mac KURULUM  (v0.2.1)"
 echo "=============================================="
 echo
 

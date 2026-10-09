@@ -32,9 +32,15 @@ DEGRADED_WAIT="${GDPI_DEGRADED_WAIT:-300}"  # bir katman doğrulanamazsa yeniden
 # Tarayıcı yolu (SpoofDPI proxy'si üzerinden): hepsine erişilebilmeli
 TEST_URLS=("https://www.roblox.com" "https://apis.roblox.com")
 # Uygulama yolu (proxy'siz): Roblox uygulamasının açılışta ilk indirdiği ayarlar
-APP_URLS=("https://clientsettings.roblox.com" "https://www.roblox.com")
+APP_URLS=("https://clientsettings.roblox.com" "https://clientsettingscdn.roblox.com" "https://www.roblox.com" "https://setup.rbxcdn.com")
 # Roblox'un IP blokları (AS22697). Yalnızca bunlara giden 443 trafiği aktarıcıya yönlendirilir.
 ROBLOX_NETS="128.116.0.0/17, 103.140.28.0/23, 209.206.40.0/21"
+# Roblox IP bloklarının dışında (CDN'lerde) duran adresler: indirici, ayarlar, oyun dosyaları.
+# IP'leri şifreli DNS'ten çözülüp pf tablosuna eklenir (aktarıcı SNI'ya göre çalıştığı için paylaşılan CDN IP'leri sorun olmaz).
+ROBLOX_HOSTS="www.roblox.com clientsettings.roblox.com clientsettingscdn.roblox.com setup.rbxcdn.com setup-aws.rbxcdn.com setup-cfly.rbxcdn.com
+apis.roblox.com auth.roblox.com ecsv2.roblox.com assetdelivery.roblox.com gamejoin.roblox.com users.roblox.com thumbnails.roblox.com
+tr.rbxcdn.com c0.rbxcdn.com c1.rbxcdn.com c2.rbxcdn.com c3.rbxcdn.com c4.rbxcdn.com c5.rbxcdn.com c6.rbxcdn.com c7.rbxcdn.com
+t0.rbxcdn.com t1.rbxcdn.com t2.rbxcdn.com t3.rbxcdn.com t4.rbxcdn.com t5.rbxcdn.com t6.rbxcdn.com t7.rbxcdn.com"
 # Proxy'siz, doğrudan internet var mı kontrolü
 CONTROL_URL="http://captive.apple.com/hotspot-detect.html"
 
@@ -161,9 +167,22 @@ pf_on() {
     pfctl -q -f /etc/pf.conf >/dev/null 2>&1
   fi
   pf_rules | pfctl -q -a "$PF_ANCHOR" -f - >/dev/null 2>&1 || return 1
+  pf_add_hosts
   if [ ! -s "$PF_TOKEN_FILE" ]; then
     pfctl -E 2>&1 | awk '/Token/ {print $NF}' > "$PF_TOKEN_FILE"
   fi
+  return 0
+}
+
+# Roblox adreslerinin güncel IP'lerini pf tablosuna ekler (CDN IP'leri değişebilir; her kontrolde yenilenir)
+pf_add_hosts() {
+  local h ips
+  # shellcheck disable=SC2086  # ROBLOX_HOSTS boşlukla ayrılmış liste
+  for h in $ROBLOX_HOSTS; do
+    ips="$(dig +short +time=2 +tries=1 A "$h" @127.0.0.1 2>/dev/null | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | grep -v '^127\.' | tr '\n' ' ')"
+    # shellcheck disable=SC2086
+    [ -n "$ips" ] && pfctl -q -a "$PF_ANCHOR" -t gdpi_roblox -T add $ips >/dev/null 2>&1
+  done
   return 0
 }
 
@@ -367,6 +386,7 @@ while true; do
   while true; do
     nap "$CHECK_EVERY"
     dns_update
+    if [ -n "$RPID" ]; then pf_add_hosts; fi
     if [ "$DNS_CHANGED" = "1" ] && [ "$APP_MODE" = "yok" ]; then
       log "DNS durumu değişti, Roblox uygulaması yolu yeniden taranacak"
       break

@@ -87,7 +87,8 @@ echo "PF: $*" >> "$GDPI_T/out.log"
 case "$*" in
   "-s nat") echo 'rdr-anchor "com.apple/*" all' ;;
   *"-f -"*) cat > "$GDPI_T/pf_rules"; touch "$GDPI_T/pf_on" ;;
-  *"-F all"*) rm -f "$GDPI_T/pf_on" ;;
+  *"-F all"*) rm -f "$GDPI_T/pf_on" "$GDPI_T/pf_table" ;;
+  *"-T add"*) echo "$*" >> "$GDPI_T/pf_table" ;;
   "-E") echo "pf enabled" >&2; echo "Token : 4242" >&2; touch "$GDPI_T/pf_enabled" ;;
   *"-X"*) rm -f "$GDPI_T/pf_enabled" ;;
 esac
@@ -218,7 +219,7 @@ check "son-profil yazılmadı"                      not test -f "$T/conf/son-pro
 echo "G) uygulama doğrudan bağlanamıyor: aktarıcı 1 başarısız, 2 çalışıyor"
 reset_env; echo 1 > "$T/ok_profile"; echo relay2 > "$T/app_need"
 start; sleep 4
-G_RELAY="$(cat "$T/relay" 2>/dev/null)"; G_PF=0; [ -f "$T/pf_on" ] && G_PF=1
+G_RELAY="$(cat "$T/relay" 2>/dev/null)"; G_PF=0; [ -f "$T/pf_on" ] && G_PF=1; cp "$T/pf_table" "$T/pf_table.kopya" 2>/dev/null
 stop
 check "aktarıcı 1 denendi"                        log_has "uygulama aktarıcısı 1 deneniyor"
 check "aktarıcı 2 seçildi"                        log_has "uygulama aktarıcısı 2 çalışıyor"
@@ -226,6 +227,7 @@ check "çalışırken aktarıcı 2 açık"                eq "$G_RELAY" "2"
 check "çalışırken pf kuralı yüklü"                eq "$G_PF" "1"
 check "pf kuralı yalnızca Roblox IP'leri"         grep -q 'table <gdpi_roblox> persist { 128.116.0.0/17' "$T/pf_rules"
 check "pf kuralı aktarıcının kendisini dışlıyor"  grep -q 'user { != nobody }' "$T/pf_rules"
+check "CDN adresleri tabloya eklendi"             grep -q 'clientsettingscdn\|128.116.21.3' "$T/pf_table.kopya"
 check "kapanınca pf kuralı kaldırıldı"            not exists "$T/pf_on"
 check "kapanınca pf referansı bırakıldı"          not exists "$T/pf_enabled"
 check "kapanınca aktarıcı durdu"                  not exists "$T/relay"
