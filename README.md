@@ -80,7 +80,7 @@ Değiştirdikten sonra `Yeniden-Baslat.command`. (v0.1'deki `MOD=tun` kaldırıl
 bash test/test-calistir.sh
 ```
 
-macOS gerektirmez. Servisin davranışını sahte araçlarla kontrol eder (53 kontrol): alternatif sırası, kopma sonrası geçiş,
+macOS gerektirmez. Servisin davranışını sahte araçlarla kontrol eder (52 kontrol): alternatif sırası, kopma sonrası geçiş,
 DNS'in açılıp eski haline dönmesi, şifreli DNS çökerse geri dönüş, aktarıcı stratejileri, pf kuralının kurulup kaldırılması,
 internet yokken bekleme, ayar dosyasına komut enjeksiyonu.
 
