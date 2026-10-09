@@ -1,34 +1,37 @@
 # Goodbye DPI For Mac X Roblox
 
-macOS'ta DPI (derin paket denetimi) tabanlı erişim engellerini aşmak için, [GoodbyeDPI](https://github.com/ValdikSS/GoodbyeDPI)'dan esinlenen bir araç.
-Mac açıldığında **arka planda otomatik** çalışır (pencere, Dock simgesi, menü çubuğu simgesi yok) ve
-**Roblox'a bağlanan alternatifi kendisi bulur**.
+macOS'ta Roblox erişim engelini aşmak için, [GoodbyeDPI](https://github.com/ValdikSS/GoodbyeDPI)'dan esinlenen bir araç.
+Mac açıldığında **arka planda otomatik** çalışır (pencere, Dock simgesi, menü çubuğu simgesi yok).
+Hem **tarayıcıda roblox.com** hem de **Roblox uygulaması** için çalışan yolu kendisi bulur.
 
 > GoodbyeDPI yalnızca Windows'ta çalışır (WinDivert sürücüsüne bağlı), bu yüzden Mac'e doğrudan taşınamaz.
-> Bu proje aynı işi yapan [SpoofDPI](https://github.com/xvzc/SpoofDPI)'yi kurar, yapılandırır ve yönetir.
+> Bu proje aynı işi macOS'ta [SpoofDPI](https://github.com/xvzc/SpoofDPI), [dnscrypt-proxy](https://github.com/DNSCrypt/dnscrypt-proxy)
+> ve kendi küçük aktarıcısıyla yapar.
 
-## Özellikler
+## Kurulum (tek komut)
 
-- **Açılışta otomatik başlar**, arka plan servisi olarak (launchd). Terminal'i açık tutmak gerekmez.
-- **8 alternatif** (GoodbyeDPI'daki "alternatif" yöntemler gibi): farklı DNS-over-HTTPS sağlayıcıları ve paket parçalama yöntemleri.
-- **Otomatik seçim**: alternatifleri tek tek dener, Roblox'a bağlananı bulunca orada kalır.
-- **Kendini onarır**: bağlantı sonradan koparsa diğer alternatifleri yeniden dener.
-- **Güvenli kapanış**: servis durunca sistem proxy ayarı kendiliğinden geri alınır; kendi proxy'ni kullanan ağ servislerine dokunmaz.
-- Tek tıkla kur / kaldır / yeniden başlat.
+Terminal'i aç, şunu yapıştır, Enter'a bas. Mac parolan istenecek:
+
+```bash
+cd ~/Downloads && rm -rf GoodbyeDPI-For-Mac-x-Roblox-main && curl -fsSL -o gdpi.zip https://github.com/Thefec/GoodbyeDPI-For-Mac-x-Roblox/archive/refs/heads/main.zip && unzip -q -o gdpi.zip && cd GoodbyeDPI-For-Mac-x-Roblox-main && bash Kur.command
+```
+
+Kurulum gerekli paketleri kurar, servisi başlatır, çalışan yolları bulmasını bekler ve **sonucu ekranda gösterir**.
+Güncellemek için de aynı komutu çalıştır. Gereksinimler: macOS, [Homebrew](https://brew.sh).
 
 ## Nasıl çalışır
 
-Servis her başlangıçta:
+Engel üç parçalıdır; servis her birini ayrı çözer, her çözümü kendisi sınar ve gerekmeyeni açmaz:
 
-1. Alternatifleri sırayla başlatır (önce en son çalışanı, sonra 1'den 8'e).
-2. Her birinde Roblox'a (`www.roblox.com`, `apis.roblox.com`) bağlanmayı dener.
-3. Bağlanan **ilk** alternatifi bulunca sistem proxy'sini ona yönlendirir ve orada kalır.
-4. Çalışırken 30 saniyede bir kontrol eder. Bağlantı koparsa kopan alternatifi en sona atıp diğerlerini yeniden dener.
+| Katman | Sorun | Çözüm |
+|---|---|---|
+| 1. DNS | Operatör Roblox adreslerine sahte IP veriyor (engel sayfası, sahte sertifika). Normal DNS sorguları da kesiliyor. | Yerel **şifreli DNS** (dnscrypt-proxy, `127.0.0.1`). Çalışmazsa eski DNS'e döner, internet bozulmaz. |
+| 2. Roblox uygulaması | Uygulama sistem proxy'sini kullanmıyor; bağlantının içindeki alan adı (SNI) DPI tarafından görülüyor. | Önce doğrudan bağlantı denenir. Olmazsa **yalnızca Roblox IP'lerine** giden trafik `pf` ile yerel aktarıcıya yönlendirilir; aktarıcı TLS ClientHello'yu parçalar. 3 strateji sırayla denenir. |
+| 3. Tarayıcı | Aynı SNI engeli | 8 SpoofDPI alternatifi sırayla denenir, Roblox'a bağlanan sistem proxy'si yapılır. |
 
-Doğrudan internet yoksa (Wi-Fi bağlı değilse) alternatifleri boşuna döndürmez, internet gelene kadar bekler.
-Hiçbir alternatif doğrulanamazsa (ör. Roblox'un kendisi arızalıysa) 1. alternatifle çalışmaya devam eder ve 5 dakika sonra yeniden tarar. (Tarama sırasında proxy kısa süre kapalı kalır, bu yüzden sık tekrarlanmaz.)
+Çalışırken 30 saniyede bir kontrol eder. Bir yol koparsa yeniden tarar. İnternet yoksa bekler.
 
-| # | DNS-over-HTTPS | Parçalama |
+| # | DNS-over-HTTPS | Parçalama (tarayıcı alternatifleri) |
 |---|---|---|
 | 1 | Cloudflare | SNI'dan böl |
 | 2 | Google | SNI'dan böl |
@@ -39,75 +42,37 @@ Hiçbir alternatif doğrulanamazsa (ör. Roblox'un kendisi arızalıysa) 1. alte
 | 7 | Quad9 | 1 bayt + sırayı boz + 3 sahte paket |
 | 8 | Google | 1 bayt + sırayı boz + 5 sahte paket |
 
-Profiller [`dosyalar/profil-*.toml`](dosyalar) içindedir; seçenekler için [SpoofDPI belgeleri](https://spoofdpi.dev/user-guide/https/).
+## Durum ve sorun giderme
 
-## Gereksinimler
+**`Durum.command`'a çift tıkla.** Servis, DNS, Roblox uygulaması ve tarayıcı yolunu ✓/✗ ile ve son olayları tek ekranda gösterir.
+Sorun varsa o ekranın fotoğrafıyla issue aç.
 
-- macOS
-- [Homebrew](https://brew.sh) (`libpcap` ve `spoofdpi` kurulumu için)
-- Yönetici parolası (kurulumda bir kez sorulur)
-
-## Kurulum
-
-**Git ile (önerilen):**
-
-```bash
-git clone https://github.com/KULLANICI_ADIN/GoodbyeDPI-For-Mac-x-Roblox.git
-cd GoodbyeDPI-For-Mac-x-Roblox
-./Kur.command
-```
-
-**ZIP ile:** Dosyaları aç, Terminal'de klasöre girip bir kez şunu çalıştır (macOS indirilen dosyaları engeller), sonra `Kur.command` dosyasına çift tıkla:
-
-```bash
-chmod +x *.command dosyalar/*.sh
-xattr -dr com.apple.quarantine .
-```
-
-Kurulum `libpcap` ve `spoofdpi`'yi kurar, servisi sisteme ekler ve başlatır. Alternatifleri denemesi bir dakika kadar sürebilir.
-Sonraki her Mac açılışında kendiliğinden başlar.
-
-Hangi alternatifin seçildiğini görmek için:
-
-```bash
-tail -f /var/log/goodbyedpi.log
-```
+- **İnternet bozuldu:** `Kaldir.command` her şeyi (proxy, DNS, pf) geri alır.
+- **Roblox açıkken kurdun:** Roblox'u tamamen kapatıp yeniden aç.
+- **"python3 yok":** Açılan pencereden Apple komut satırı araçlarını kur, sonra kurulumu yeniden çalıştır.
 
 ## Ayarlar
 
-`~/Library/Application Support/GoodbyeDPI/ayarlar.conf` dosyasını bir metin düzenleyiciyle aç:
+`~/Library/Application Support/GoodbyeDPI/ayarlar.conf`:
 
 | Ayar | Değerler | Açıklama |
 |---|---|---|
-| `PROFIL` | `otomatik` / `1`-`8` | `otomatik` önerilen. Rakam yazarsan yalnızca o alternatif kullanılır, denenmez |
-| `MOD` | `http` / `tun` | `http` önerilen (sistem proxy'si). Roblox oyunu bağlanmazsa `tun` dene (deneysel, UDP dahil tüm trafiği kapsar) |
+| `PROFIL` | `otomatik` / `1`-`8` | Tarayıcı alternatifi. `otomatik` önerilen |
 
-Değiştirdikten sonra `./Yeniden-Baslat.command` çalıştır.
+Değiştirdikten sonra `Yeniden-Baslat.command`. (v0.1'deki `MOD=tun` kaldırıldı: SpoofDPI'nin deneysel tun modu takılıyordu.)
 
 ## Kaldırma
 
-`./Kaldir.command` servisi ve sistem proxy ayarını tamamen kaldırır. İnternet bozulursa da bunu çalıştır.
-(Homebrew'daki `spoofdpi` paketine dokunmaz; istersen `brew uninstall spoofdpi`.)
-
-## Sorun giderme
-
-- **Çalışıyor mu?** `tail -f /var/log/goodbyedpi.log`. Hangi alternatifin denendiğini ve seçildiğini gösterir.
-- **Site açılıyor, oyun bağlanmıyor:** Doğrulama yalnızca Roblox'un web/API adreslerine HTTPS ile ulaşılıp ulaşılamadığına bakar. Oyun trafiği (UDP) `http` modunda proxy'den geçmez. `MOD=tun` yap.
-- **Hiçbir alternatif çalışmıyor:** Tarayıcında "Güvenli DNS" / DNS-over-HTTPS açıksa kapat ya da sistem ayarını kullanmasını seç. Sonra servisi yeniden başlat.
-- **Servis hiç başlamıyor:** `sudo launchctl print system/com.goodbyedpi.mac` çıktısına ve günlük dosyasına bak.
-- **`spoofdpi`'yi güncelledin:** `./Kur.command`'ı yeniden çalıştır (servis kendi kopyasını kullanır).
+`Kaldir.command`: servisi, sistem proxy'sini, DNS ayarını ve pf kuralını geri alır, şifreli DNS'i durdurur.
+(Homebrew paketleri kalır; istersen `brew uninstall spoofdpi dnscrypt-proxy`.)
 
 ## Güvenlik notları
 
-- Servis root olarak çalışır; bu yüzden çalıştırılan her dosya (`calistir.sh`, `spoofdpi`, profiller) root'a ait kopyalardır (`/usr/local/libexec/goodbyedpi`, `/usr/local/etc/goodbyedpi`), kullanıcı tarafından değiştirilemez.
-- Kullanıcının `ayarlar.conf` dosyası root tarafından **çalıştırılmaz**; yalnızca izin verilen değerler (`otomatik`, `1`-`8`, `http`, `tun`) kalıp eşleştirmesiyle okunur.
-- Sistem proxy ayarı yalnızca `127.0.0.1`'e işaret ediyorsa geri alınır.
-
-## Durum ve sınırlar
-
-- Otomatik seçim mantığı sahte araçlarla test edilir (`test/test-calistir.sh`). **Gerçek bir Mac'te uçtan uca denenmesi sürüyor**; sorun görürsen günlük satırlarıyla issue aç.
-- Hangi alternatifin çalıştığı internet sağlayıcına göre değişir; bu yüzden otomatik seçim var.
-- `http` modu sistem proxy'sini kullanır. Proxy'yi yok sayan uygulamalarda ve UDP trafiğinde etkisi olmayabilir.
+- Servis root olarak çalışır; çalıştırdığı her dosya root'a ait kopyalardır (`/usr/local/libexec/goodbyedpi`, `/usr/local/etc/goodbyedpi`).
+- Kullanıcının `ayarlar.conf` dosyası **çalıştırılmaz**; yalnızca izin verilen değerler okunur.
+- Aktarıcı portu açtıktan sonra `nobody` kullanıcısına düşer. Şifre çözmez, sertifika kurmaz; yalnızca ilk paketi parçalar, sonrasını olduğu gibi aktarır.
+- `pf` kuralı yalnızca Roblox IP bloklarına (AS22697) giden 443 trafiğini etkiler; macOS'un `com.apple/goodbyedpi` çapasına yüklenir, `/etc/pf.conf` değiştirilmez.
+- DNS ve proxy ayarları yalnızca `127.0.0.1`'e işaret ediyorsa geri alınır; önceki DNS sunucuların kaydedilip geri yüklenir.
 
 ## Test
 
@@ -115,15 +80,19 @@ Değiştirdikten sonra `./Yeniden-Baslat.command` çalıştır.
 bash test/test-calistir.sh
 ```
 
-macOS gerektirmez (Linux/macOS). `spoofdpi`, `curl`, `nc` ve `networksetup`'ın sahtelerini kullanarak servisin davranışını kontrol eder:
-alternatif sırası, proxy'nin yalnızca çalışan bulununca açılması, kopma sonrası geçiş, internet yokken bekleme, sabit alternatif, tun modu.
+macOS gerektirmez. Servisin davranışını sahte araçlarla kontrol eder (50 kontrol): alternatif sırası, kopma sonrası geçiş,
+DNS'in açılıp eski haline dönmesi, şifreli DNS çökerse geri dönüş, aktarıcı stratejileri, pf kuralının kurulup kaldırılması,
+internet yokken bekleme, ayar dosyasına komut enjeksiyonu.
+
+**Durum:** Engelin üç parçası gerçek bir Mac'te (macOS 13, Türk Telekom) ayrı ayrı doğrulandı. Aktarıcı yerel TLS sunucusuyla test edildi.
+Uygulama yolunun uçtan uca doğrulaması kurulumda otomatik yapılır ve sonucu ekranda gösterilir.
 
 ## Krediler
 
-- [SpoofDPI](https://github.com/xvzc/SpoofDPI) (xvzc, Apache-2.0): asıl DPI aşma işini yapan araç. Bu repo onu içermez, Homebrew'dan kurar.
-- [GoodbyeDPI](https://github.com/ValdikSS/GoodbyeDPI) (ValdikSS) ve [GoodbyeDPI-Turkey](https://github.com/cagritaskn/GoodbyeDPI-Turkey) (cagritaskn): "alternatif yöntem" fikri için ilham.
+- [SpoofDPI](https://github.com/xvzc/SpoofDPI) (xvzc, Apache-2.0) ve [dnscrypt-proxy](https://github.com/DNSCrypt/dnscrypt-proxy) (ISC): Homebrew'dan kurulur, bu repo içermez.
+- [GoodbyeDPI](https://github.com/ValdikSS/GoodbyeDPI) (ValdikSS) ve [GoodbyeDPI-Turkey](https://github.com/cagritaskn/GoodbyeDPI-Turkey) (cagritaskn): "alternatif yöntem" fikri.
 
-Bu proje Roblox Corporation, SpoofDPI veya GoodbyeDPI ile bağlantılı ya da onlar tarafından onaylanmış değildir.
+Bu proje Roblox Corporation, SpoofDPI, dnscrypt-proxy veya GoodbyeDPI ile bağlantılı ya da onlar tarafından onaylanmış değildir.
 
 ## Sorumluluk
 
@@ -138,10 +107,10 @@ Bulunduğun ülkedeki yasalara ve kullandığın servislerin şartlarına uy.
 
 ## English summary
 
-**Goodbye DPI For Mac X Roblox** is a macOS background service inspired by GoodbyeDPI (which is Windows-only). It installs and manages
-[SpoofDPI](https://github.com/xvzc/SpoofDPI), starts at boot with no visible window, and **automatically tries 8 alternative
-configurations until one can reach Roblox**, then keeps monitoring and re-scans if the connection drops.
+**Goodbye DPI For Mac X Roblox** is a macOS background service (starts at boot, no visible window) that gets both the Roblox website
+and the **Roblox app** past ISP DNS poisoning and SNI-based DPI. It runs three self-checking layers: a local encrypted DNS resolver
+(dnscrypt-proxy; reverts to the previous DNS if it fails), a transparent relay that `pf` feeds only Roblox-bound port-443 traffic and
+that fragments the TLS ClientHello (needed because the Roblox app ignores the system proxy), and 8 SpoofDPI alternatives for browsers.
 
-Install: `git clone` this repo, run `./Kur.command` (needs Homebrew and an admin password). Uninstall: `./Kaldir.command`.
-Settings live in `~/Library/Application Support/GoodbyeDPI/ayarlar.conf` (`PROFIL=otomatik|1-8`, `MOD=http|tun`). Logs: `/var/log/goodbyedpi.log`.
-Not yet verified end-to-end on a real Mac; the selection logic is covered by `test/test-calistir.sh`. Use at your own risk and follow local laws.
+Install: run the one-line command above (needs Homebrew). Status: `Durum.command`. Uninstall: `Kaldir.command`.
+Logic is covered by `test/test-calistir.sh` (fake tools, no macOS needed). Use at your own risk and follow local laws.

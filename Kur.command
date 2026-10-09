@@ -1,6 +1,6 @@
 #!/bin/bash
 # GoodbyeDPI-Mac KURULUM: Mac açılışında arka planda otomatik çalışır.
-# Çalışan alternatifi (8 tane) kendisi bulur. Çift tıkla çalıştır; bir kez yapmak yeterli.
+# Çift tıkla (ya da Terminal'de ./Kur.command). Bir kez yapmak yeterli; güncellemek için de bunu çalıştır.
 
 cd "$(dirname "$0")" || exit 1
 SRC="$(pwd)/dosyalar"
@@ -8,7 +8,7 @@ SRC="$(pwd)/dosyalar"
 pause_exit() { echo; read -r -p "Çıkmak için Enter'a bas..." _; exit "${1:-0}"; }
 
 echo "=============================================="
-echo "   GoodbyeDPI-Mac KURULUM"
+echo "   GoodbyeDPI-Mac KURULUM  (v0.2.0)"
 echo "=============================================="
 echo
 
@@ -23,66 +23,102 @@ if ! command -v brew >/dev/null 2>&1; then
   echo "sonra bu dosyayı tekrar çalıştır."
   pause_exit 1
 fi
+BREW="$(command -v brew)"
 
-# --- Paketler ---
-if ! brew list libpcap >/dev/null 2>&1; then
-  echo "libpcap kuruluyor..."
-  brew install libpcap || { echo "libpcap kurulamadı."; pause_exit 1; }
-fi
-if ! command -v spoofdpi >/dev/null 2>&1; then
-  echo "spoofdpi kuruluyor..."
-  brew install spoofdpi || { echo "spoofdpi kurulamadı."; pause_exit 1; }
-fi
+# --- Paketler (eski macOS'ta derleme birkaç dakika sürebilir) ---
+for pkg in libpcap spoofdpi dnscrypt-proxy; do
+  if ! brew list "$pkg" >/dev/null 2>&1; then
+    echo "$pkg kuruluyor (birkaç dakika sürebilir)..."
+    brew install "$pkg" || { echo "$pkg kurulamadı."; pause_exit 1; }
+  fi
+done
 SPOOFDPI="$(command -v spoofdpi)"
-echo "spoofdpi: $SPOOFDPI"
+[ -n "$SPOOFDPI" ] || SPOOFDPI="$(brew --prefix)/bin/spoofdpi"
 
-# --- Kullanıcı ayar dosyası ---
+# --- python3 (Roblox uygulaması aktarıcısı için; Apple'ın komut satırı araçlarıyla gelir) ---
+if ! xcode-select -p >/dev/null 2>&1 || ! /usr/bin/python3 -c 'import asyncio' >/dev/null 2>&1; then
+  echo "UYARI: python3 bulunamadı. Açılan pencerede 'Yükle'ye bas, bitince Kur.command'ı yeniden çalıştır."
+  xcode-select --install >/dev/null 2>&1
+fi
+
+# --- Kullanıcı ayar dosyası (yalnızca PROFIL korunur; eski MOD ayarı kaldırıldı) ---
 USER_DIR="$HOME/Library/Application Support/GoodbyeDPI"
 USER_CONF="$USER_DIR/ayarlar.conf"
 mkdir -p "$USER_DIR"
-if [ ! -f "$USER_CONF" ]; then
-  cp "$SRC/ayarlar.conf" "$USER_CONF"
-  echo "Ayar dosyası oluşturuldu: $USER_CONF"
-else
-  echo "Mevcut ayar dosyan korundu."
+OLD_PROFIL="$(grep -E '^PROFIL=(otomatik|[1-8])[[:space:]]*$' "$USER_CONF" 2>/dev/null | tail -n 1 | tr -d '[:space:]')"
+cp "$SRC/ayarlar.conf" "$USER_CONF"
+if [ -n "$OLD_PROFIL" ] && [ "$OLD_PROFIL" != "PROFIL=otomatik" ]; then
+  sed -i '' "s/^PROFIL=.*/$OLD_PROFIL/" "$USER_CONF"
 fi
 
 # Önceki sürümden kalmış Roblox açılış ajanı varsa kaldır
 launchctl bootout "gui/$(id -u)/com.goodbyedpi.roblox" >/dev/null 2>&1
 rm -f "$HOME/Library/LaunchAgents/com.goodbyedpi.roblox.plist"
 
-# --- Sistem tarafı (root): servis dosyaları ---
+# --- Sistem tarafı (root) ---
 echo
-echo "Arka plan servisi için Mac parolan istenecek (yazarken görünmez):"
+echo "Mac parolan istenecek (yazarken görünmez):"
 sudo -v || { echo "Parola alınamadı."; pause_exit 1; }
+
+echo "Şifreli DNS (dnscrypt-proxy) başlatılıyor..."
+sudo "$BREW" services restart dnscrypt-proxy >/dev/null 2>&1 || sudo "$BREW" services start dnscrypt-proxy >/dev/null 2>&1
+for _ in $(seq 1 30); do
+  dig +short +time=2 +tries=1 A clientsettings.roblox.com @127.0.0.1 2>/dev/null | grep -Eq '^[0-9.]+$' && break
+  sleep 2
+done
+if dig +short +time=2 +tries=1 A clientsettings.roblox.com @127.0.0.1 2>/dev/null | grep -Eq '^[0-9.]+$'; then
+  echo "  şifreli DNS hazır."
+else
+  echo "  UYARI: şifreli DNS henüz yanıt vermiyor; servis hazır olunca kendisi devreye alacak."
+fi
 
 TMP="$(mktemp -d)"
 sed "s|__USER_CONF__|$USER_CONF|g" "$SRC/com.goodbyedpi.mac.plist" > "$TMP/daemon.plist"
-
 DAEMON_PLIST="/Library/LaunchDaemons/com.goodbyedpi.mac.plist"
 
-# Varsa eski servisi ve elle açılmış kopyaları durdur
+# Eski servisi durdur (kapanırken DNS/proxy/pf ayarlarını kendisi geri alır)
 sudo launchctl bootout system/com.goodbyedpi.mac >/dev/null 2>&1
 sudo pkill -x spoofdpi >/dev/null 2>&1
+sudo pkill -f roblox-relay.py >/dev/null 2>&1
 
 sudo mkdir -p /usr/local/etc/goodbyedpi /usr/local/libexec/goodbyedpi || { echo "Klasörler oluşturulamadı."; pause_exit 1; }
-# Root olarak çalışacak dosyalar root'a ait kopyalardır (kullanıcı yazabilir olmasın diye)
+# Root olarak çalışacak dosyalar root'a ait kopyalardır (kullanıcı değiştiremesin diye)
 sudo install -m 755 -o root -g wheel "$SPOOFDPI" /usr/local/libexec/goodbyedpi/spoofdpi || { echo "spoofdpi kopyalanamadı."; pause_exit 1; }
 sudo install -m 755 -o root -g wheel "$SRC/calistir.sh" /usr/local/libexec/goodbyedpi/calistir.sh
+sudo install -m 755 -o root -g wheel "$SRC/roblox-relay.py" /usr/local/libexec/goodbyedpi/roblox-relay.py
 for i in 1 2 3 4 5 6 7 8; do
   sudo install -m 644 -o root -g wheel "$SRC/profil-$i.toml" "/usr/local/etc/goodbyedpi/profil-$i.toml"
 done
 sudo install -m 644 -o root -g wheel "$TMP/daemon.plist" "$DAEMON_PLIST"
 rm -rf "$TMP"
 
+# Yeni servis eski günlükle karışmasın
+sudo sh -c ': > /var/log/goodbyedpi.log'
+
 echo "Servis başlatılıyor..."
 sudo launchctl bootstrap system "$DAEMON_PLIST" || { echo "Servis başlatılamadı. Günlük: /var/log/goodbyedpi.log"; pause_exit 1; }
 
+# --- Sonucu bekle ve göster (en fazla ~3 dakika) ---
 echo
-echo "KURULDU. Servis arka planda alternatifleri denemeye başladı (bir dakika kadar sürebilir)."
-echo "Artık Mac her açıldığında kendiliğinden başlar; pencere/simge yok."
+echo "Servis bağlantı yollarını deniyor, bekle (1-3 dakika)..."
+LOG=/var/log/goodbyedpi.log
+for _ in $(seq 1 90); do
+  sleep 2
+  if grep -qE "alternatif [0-9] çalışıyor|hiçbir alternatif doğrulanamadı|sabit alternatif" "$LOG" 2>/dev/null; then break; fi
+  printf "."
+done
 echo
-echo "Hangi alternatifin çalıştığını görmek için:  tail -f /var/log/goodbyedpi.log"
-echo "Ayarlar : $USER_CONF  (değiştirince Yeniden-Baslat.command)"
-echo "Kaldırma: Kaldir.command"
+echo
+echo "------------------- SONUÇ -------------------"
+grep -E "DNS|doğrudan|aktarıcısı [0-9] çalışıyor|yol doğrulanamadı|python|alternatif [0-9] çalışıyor|hiçbir alternatif|sabit alternatif|internet yok" "$LOG" | sed 's/^[0-9-]* [0-9:]* /  /'
+echo "---------------------------------------------"
+if grep -qE "doğrudan bağlanabiliyor|aktarıcısı [0-9] çalışıyor" "$LOG"; then
+  echo "KURULDU. Roblox uygulamasını açabilirsin (açıksa kapatıp yeniden aç)."
+else
+  echo "Kuruldu ama Roblox uygulaması yolu henüz doğrulanamadı. Servis birkaç dakikada bir yeniden dener."
+  echo "Bir sorun olursa Durum.command'a çift tıkla ve ekranın fotoğrafını gönder."
+fi
+echo
+echo "Mac her açıldığında kendiliğinden başlar; pencere/simge yok."
+echo "Durum: Durum.command   Kaldırma: Kaldir.command"
 pause_exit 0

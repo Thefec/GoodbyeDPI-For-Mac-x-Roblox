@@ -16,6 +16,9 @@ jobs:
             bash -n "$f"
           done
 
+      - name: Aktarıcı sözdizimi
+        run: python3 -m py_compile dosyalar/roblox-relay.py
+
       - name: shellcheck
         run: shellcheck -S warning *.command dosyalar/*.sh test/*.sh
 
